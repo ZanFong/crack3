@@ -15,51 +15,28 @@
 //provided function outline
 // Given a target plaintext word, use it to try to find
 // a matching hash in the hashFile.
-char * tryWord(char * plaintext, char * hashFilename)
+char * tryWord(char * plaintext, char ** hashes, int hashSize)
 {
-    //store hash of provided plaintext password
     char *password = md5(plaintext, strlen(plaintext));
-
-    // Open the hash file
-    FILE *hashFile = fopen(hashFilename, "r");
-    if(!hashFile) 
+    
+    for(int i = 0; i < hashSize; i++)
     {
-        printf("Unable to open file %s!\n", hashFilename);
-        exit(1);
-    }
+        char *hash = hashes[i];
 
-    //init var to store hash value from file
-    char hash[HASH_LEN];
-
-    // Loop through the hash file, one line at a time.
-    while(fgets(hash, HASH_LEN, hashFile))
-    {
-        //trim newline if needed
-        if(hash[strlen(hash) - 1] == '\n') hash[strlen(hash) - 1] = '\0';
-
-        //compare password hash to hash list
-        //if match, return hash
-        if(!strcmp(hash, password))
+        if(!strcmp(password, hash))
         {
-            //free memory and close file
             free(password);
-            fclose(hashFile);
-
-            return hash;
+            return hashes[i];
         }
     }
 
-    //free memory and close file
     free(password);
-    fclose(hashFile);
-
-    //return NULL if no match found
     return NULL;
 }
 
 // Function to load a file into an array of strings
 // This function loads the contents of a file into a dynamically allocated array of strings.
-char ** loadFileAA(char *filename, int *size)
+char ** loadFile(char *filename, int *size, int maxLen)
 {
     // Open the file
     FILE *in = fopen(filename, "r");
@@ -72,7 +49,7 @@ char ** loadFileAA(char *filename, int *size)
     // Allocate memory for the array of strings
     int capacity = 1000; // initial capacity
     char ** arr = malloc(capacity * sizeof(char *));
-    char line[PASS_LEN];
+    char line[maxLen];
     int lineNum = 0;
 
     // Read the file line by line.
@@ -118,7 +95,11 @@ int main(int argc, char *argv[])
 
     // Load dictionary file into array
     int dictSize = 0;
-    char **dictWords = loadFileAA(argv[2], &dictSize);
+    char **dictWords = loadFile(argv[2], &dictSize, PASS_LEN);
+
+    //load hashes into array
+    int hashSize = 0;
+    char **hashes = loadFile(argv[1], &hashSize, HASH_LEN);
 
     // Initialize var to hold number of successful matches
     int hacked = 0;
@@ -127,7 +108,7 @@ int main(int argc, char *argv[])
     for (int i = 0; i < dictSize; i++)
     {  
         // Store result of tryWord
-        char *match = tryWord(dictWords[i], argv[1]);
+        char *match = tryWord(dictWords[i], hashes, hashSize);
         
         // If tryWord returned non-NULL value, print the hash and dictionary word
         if(match)
@@ -137,12 +118,18 @@ int main(int argc, char *argv[])
         }
     }
 
-    // Free the memory used by the array
+    // Free the memory used by the arrays
     for (int i = 0; i < dictSize; i++)
     {
         free(dictWords[i]);
     }
     free(dictWords);
+
+    for (int i = 0; i < hashSize; i++)
+    {
+        free(hashes[i]);
+    }
+    free(hashes);
 
     // Print total number of successful matches
     printf("%d hashes were cracked.\n", hacked);
